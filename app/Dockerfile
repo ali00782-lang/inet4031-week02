@@ -1,9 +1,5 @@
 FROM python:3.11-bullseye
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
-
 RUN useradd --uid 1000 --create-home appuser
 
 WORKDIR /app
