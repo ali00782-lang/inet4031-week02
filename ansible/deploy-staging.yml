@@ -1,0 +1,63 @@
+---
+- name: Deploy Flask application to staging
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Create Docker network
+      ansible.builtin.shell: |
+        docker network inspect lab6-net >/dev/null 2>&1 ||
+        docker network create lab6-net
+
+    - name: Create persistent database volume
+      ansible.builtin.command: docker volume create lab6-pgdata
+
+    - name: Replace staging database container
+      ansible.builtin.shell: |
+        docker rm -f lab6-db 2>/dev/null || true
+        docker run -d --name lab6-db \
+          --network lab6-net \
+          --restart unless-stopped \
+          -v lab6-pgdata:/var/lib/postgresql/data \
+          -e POSTGRES_DB=statustracker \
+          -e POSTGRES_USER=appuser \
+          -e POSTGRES_PASSWORD="$STAGING_DB_PASSWORD" \
+          postgres:16
+      no_log: true
+
+    - name: Pull new application image
+      ansible.builtin.command: >
+        docker pull {{ lookup('env', 'IMAGE_NAME') }}:{{ lookup('env', 'GITHUB_SHA') }}
+
+    - name: Replace staging application container
+      ansible.builtin.shell: |
+        docker rm -f lab6-app 2>/dev/null || true
+        docker run -d --name lab6-app \
+          --network lab6-net \
+          --restart unless-stopped \
+          -p 127.0.0.1:5000:5000 \
+          -e DATABASE_URL="postgresql://appuser:${STAGING_DB_PASSWORD}@lab6-db:5432/statustracker" \
+          "$IMAGE_NAME:$GITHUB_SHA"
+      no_log: true
+
+    - name: Verify Flask health endpoint
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5000/health
+        status_code: 200
+        return_content: true
+      register: health
+      until: health.status == 200
+      retries: 20
+      delay: 3
+
+    - name: Show running containers
+      ansible.builtin.command: docker ps
+      register: containers
+      changed_when: false
+
+    - name: Display deployment result
+      ansible.builtin.debug:
+        msg:
+          - "Staging health: {{ health.json }}"
+          - "{{ containers.stdout_lines }}"
