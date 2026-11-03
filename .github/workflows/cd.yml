@@ -54,3 +54,16 @@ jobs:
           file: ./app/Dockerfile
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy-production:
+    name: Production Approval Gate
+    needs: build-scan-push
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Confirm production approval
+        run: |
+          echo "Production deployment approved."
+          echo "No production VM configured; deployment not executed."
