@@ -7,7 +7,7 @@ Run inside the flask container, which already has DATABASE_URL and psycopg2:
 import argparse
 import os
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import psycopg2
 import psycopg2.extras
@@ -31,7 +31,7 @@ SUBJECTS = [
 
 def random_row():
     days_ago = random.uniform(0, 180)
-    created_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    created_at = datetime.now(UTC) - timedelta(days=days_ago)
     subject = random.choice(SUBJECTS)
     status = random.choices(STATUSES, weights=STATUS_WEIGHTS)[0]
     description = f"Auto-generated seed record for load testing ({subject.lower()})."
